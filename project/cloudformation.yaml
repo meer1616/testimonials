@@ -1,0 +1,1089 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cloud formation of cloud project (Testimonial creation and embeded system) using AWS cognito, dynamodb, lambda,s3, sns, api gateway, ec2
+
+Resources:
+  # --------------------- Cognito User Pool
+
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: MyUserPool
+      Schema:
+        - AttributeDataType: String
+          Name: email
+          Required: true
+          Mutable: true
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: MyUserPoolClient
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ADMIN_NO_SRP_AUTH
+        - USER_PASSWORD_AUTH
+
+  # --------------------- DynamoDB Tables
+  SpaceTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: space
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        - IndexName: userId-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+
+  TestimonialTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: testimonial
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: spaceId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        - IndexName: spaceId-index
+          KeySchema:
+            - AttributeName: spaceId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+
+  # --------------------- SNS Topic ---------------------
+  MyTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: TestimonialNotification
+
+  # --------------------- Lambda functions ---------------------
+
+  SubscribeEmailFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "subscribe-email"
+      Handler: "lambda_function.lambda_handler"
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: "meer-cloud-projects"
+        S3Key: "subscribe-email.zip"
+      Runtime: "python3.9"
+      Environment:
+        Variables:
+          SNS_ARN_PREFIX: !Ref MyTopic
+      Timeout: 30
+
+  PublishEmailFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "publish-email"
+      Handler: "lambda_function.lambda_handler"
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: "meer-cloud-projects"
+        S3Key: "publish-email.zip"
+      Runtime: "python3.9"
+      Environment:
+        Variables:
+          SNS_ARN_PREFIX: !Ref MyTopic
+      Timeout: 30
+
+  CreateSpaceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: create-space
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: meer-cloud-projects
+        S3Key: create-space.zip
+
+  GetSpaceByIdFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: get-space-by-id
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: meer-cloud-projects
+        S3Key: get-space-by-id.zip
+
+  GetSpaceOfUserFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: get-space-of-a-user
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: meer-cloud-projects
+        S3Key: get-space-of-a-user.zip
+
+  GetTestimonialOfSpaceFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: get-testimonial-of-space
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: meer-cloud-projects
+        S3Key: get-testimonial-of-space.zip
+
+  ImgUploadFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: img-upload
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: meer-cloud-projects
+        S3Key: img-upload.zip
+
+  TestimonialsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: testimonials
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: meer-cloud-projects
+        S3Key: testimonials.zip
+
+  UpdateTestimonialFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: update-testimonial
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: meer-cloud-projects
+        S3Key: update-testimonial.zip
+
+  GetTestimonialByIdFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: get-testimonial-by-id
+      Handler: index.handler
+      Runtime: nodejs20.x
+      Role: arn:aws:iam::653190818102:role/LabRole
+      Code:
+        S3Bucket: meer-cloud-projects
+        S3Key: get-testimonial-by-id.zip
+
+  # --------------------- API Gateway ---------------------
+
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: testimonial-api
+      Description: Term project API
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  ApiGatewayAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: CognitoAuthorizer
+      RestApiId: !Ref ApiGatewayRestApi
+      Type: COGNITO_USER_POOLS
+      IdentitySource: method.request.header.Authorization
+      ProviderARNs:
+        - !GetAtt CognitoUserPool.Arn
+
+  ApiGatewayCreateSpaceResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "create-space"
+
+  ApiGatewayGetSpaceByIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "get-space-by-id"
+
+  ApiGatewayGetSpaceOfaUserResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "get-space-of-a-user"
+    DependsOn: ApiGatewayRestApi
+
+  ApiGatewayGetTestimonialOfSpaceResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "get-testimonial-of-space"
+
+  ApiGatewayImgUploadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "img-upload"
+
+  ApiGatewayTestimonialsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "testimonials"
+
+  ApiGatewayUpdateTestimonialResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "update-testimonial"
+
+  ApiGatewayGetTestimonialByIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "get-testimonial-by-id"
+
+  ApiGatewaySubscribeEmailResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "subscribe-email"
+
+  ApiGatewayPublishEmailResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      RestApiId: !Ref ApiGatewayRestApi
+      PathPart: "publish-email"
+
+  # ------------------- ApiGateway Methods
+  ApiGatewayGetSpaceOfaUserMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      # AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayGetSpaceOfaUserResource
+      RestApiId: !Ref ApiGatewayRestApi
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetSpaceOfUserFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: GetSpaceOfUserFunction
+
+  ApiGatewayCreateSpaceMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      # AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayCreateSpaceResource
+      RestApiId: !Ref ApiGatewayRestApi
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateSpaceFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: CreateSpaceFunction
+
+  ApiGatewayGetSpaceByIdMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayGetSpaceByIdResource
+      RestApiId: !Ref ApiGatewayRestApi
+      # AuthorizationType: COGNITO_USER_POOLS
+      # AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetSpaceByIdFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: GetSpaceByIdFunction
+
+  ApiGatewayGetTestimonialOfSpaceMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      # AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayGetTestimonialOfSpaceResource
+      RestApiId: !Ref ApiGatewayRestApi
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetTestimonialOfSpaceFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: GetTestimonialOfSpaceFunction
+
+  ApiGatewayImgUploadMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      # AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayImgUploadResource
+      RestApiId: !Ref ApiGatewayRestApi
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ImgUploadFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: ImgUploadFunction
+
+  ApiGatewayTestimonialsMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      # AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayTestimonialsResource
+      RestApiId: !Ref ApiGatewayRestApi
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TestimonialsFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: TestimonialsFunction
+
+  ApiGatewayUpdateTestimonialMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      # AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayUpdateTestimonialResource
+      RestApiId: !Ref ApiGatewayRestApi
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateTestimonialFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: UpdateTestimonialFunction
+
+  ApiGatewayGetTestimonialByIdMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayGetTestimonialByIdResource
+      RestApiId: !Ref ApiGatewayRestApi
+      # AuthorizationType: COGNITO_USER_POOLS
+      # AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetTestimonialByIdFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: GetTestimonialByIdFunction
+
+  ApiGatewaySubscribeEmailMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewaySubscribeEmailResource
+      RestApiId: !Ref ApiGatewayRestApi
+      # AuthorizationType: COGNITO_USER_POOLS
+      # AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SubscribeEmailFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: SubscribeEmailFunction
+
+  ApiGatewayPublishEmailMethodPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref ApiGatewayPublishEmailResource
+      RestApiId: !Ref ApiGatewayRestApi
+      # AuthorizationType: COGNITO_USER_POOLS
+      # AuthorizerId: !Ref ApiGatewayAuthorizer
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PublishEmailFunction.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: $input.json('$')
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: "Empty"
+    DependsOn: PublishEmailFunction
+
+  # ------------------  ApiGateway Method Options
+
+  ApiGatewayGetSpaceOfaUserMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayGetSpaceOfaUserResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  ApiGatewayCreateSpaceMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayCreateSpaceResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  ApiGatewayGetSpaceByIdMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayGetSpaceByIdResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  ApiGatewayGetTestimonialOfSpaceMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayGetTestimonialOfSpaceResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  ApiGatewayImgUploadMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayImgUploadResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  ApiGatewayTestimonialsMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayTestimonialsResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  ApiGatewayUpdateTestimonialMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayUpdateTestimonialResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  ApiGatewayGetTestimonialByIdMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayGetTestimonialByIdResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  ApiGatewaySubscribeEmailMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewaySubscribeEmailResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  ApiGatewayPublishEmailMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref ApiGatewayPublishEmailResource
+      RestApiId: !Ref ApiGatewayRestApi
+      Integration:
+        IntegrationHttpMethod: OPTIONS
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          ResponseModels:
+            application/json: Empty
+
+  # ------------------  Lambda permissions -------------
+  LambdaPermissionGetSpaceByIdFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt GetSpaceByIdFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  LambdaPermissionGetTestimonialOfSpaceFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt GetTestimonialOfSpaceFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  LambdaPermissionImgUploadFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt ImgUploadFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  LambdaPermissionTestimonialsFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt TestimonialsFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  LambdaPermissionGetSpaceOfUserFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt GetSpaceOfUserFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  LambdaPermissionCreateSpaceFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt CreateSpaceFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  LambdaPermissionUpdateTestimonialFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt UpdateTestimonialFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  LambdaPermissionGetTestimonialByIdFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt GetTestimonialByIdFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  LambdaPermissionSubscribeEmailFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt SubscribeEmailFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  LambdaPermissionPublishEmailFunction:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt PublishEmailFunction.Arn
+      Principal: apigateway.amazonaws.com
+
+  # ------------------  API Deployment -------------
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayCreateSpaceMethodPost
+      - ApiGatewayCreateSpaceMethodOptions
+
+  ApiGatewayGetSpaceByIdDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayGetSpaceByIdMethodPost
+      - ApiGatewayGetSpaceByIdMethodOptions
+
+  ApiGatewayGetSpaceOfaUserDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayGetSpaceOfaUserMethodPost
+      - ApiGatewayGetSpaceOfaUserMethodOptions
+
+  ApiGatewayGetTestimonialOfSpaceDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayGetTestimonialOfSpaceMethodPost
+      - ApiGatewayGetTestimonialOfSpaceMethodOptions
+
+  ApiGatewayImgUploadDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayImgUploadMethodPost
+      - ApiGatewayImgUploadMethodOptions
+
+  ApiGatewayTestimonialsDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayTestimonialsMethodPost
+      - ApiGatewayTestimonialsMethodOptions
+
+  ApiGatewayUpdateTestimonialDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayUpdateTestimonialMethodPost
+      - ApiGatewayUpdateTestimonialMethodOptions
+
+  ApiGatewayGetTestimonialByIdDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayGetTestimonialByIdMethodPost
+      - ApiGatewayGetTestimonialByIdMethodOptions
+
+  ApiGatewaySubscribeEmailDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewaySubscribeEmailMethodPost
+      - ApiGatewaySubscribeEmailMethodOptions
+
+  ApiGatewayPublishEmailDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGatewayRestApi
+      StageName: prod
+    DependsOn:
+      - ApiGatewayPublishEmailMethodPost
+      - ApiGatewayPublishEmailMethodOptions
+
+  # ----------------------- ec2
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0ba9883b710b05ac6
+      InstanceType: t2.micro
+      KeyName: new-testkp
+      SecurityGroups:
+        - Ref: TestimonialSecurityGroup
+      Tags:
+        - Key: Name
+          Value: testimonial
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Step 1: Update the package index
+          sudo yum update -y
+          # Step 2: Install Docker
+          sudo yum install -y docker
+          # Step 3: Start Docker service
+          sudo service docker start
+          # Step 4: Enable Docker to start on boot
+          sudo chkconfig docker on
+
+          # Step 5: Pull a Docker image 
+          sudo docker rmi meer2838/cloud
+          sudo docker pull meer2838/cloud
+          sudo docker stop testimonials
+          sudo docker rm testimonials
+          rm -f .env
+
+          # Step 6: Define environment variables
+          echo "REACT_APP_BASE_URL=https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod" >> .env
+          echo "REACT_APP_USER_POOL_ID=${CognitoUserPool}" >> .env
+          echo "REACT_APP_CLIENT_ID=${CognitoUserPoolClient}" >> .env
+
+          # Step 6: Run the Docker container 
+          sudo docker run --name testimonials -d -p 80:3000 --env-file .env meer2838/cloud
+
+  TestimonialSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and port 80 access from anywhere
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+Outputs:
+  ApiUrl:
+    Description: "The URL of the API"
+    Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
